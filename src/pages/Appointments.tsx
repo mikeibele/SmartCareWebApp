@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { Appointment } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../../src/lib/supabase'; // adjust if needed
+import { supabase } from '../../src/lib/supabase';
 
 const Appointments: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -17,23 +17,35 @@ const Appointments: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { doctorProfile } = useAuth();
 
-
-useEffect(() => {
-  const checkUser = async () => {
-    const { data: user } = await supabase.auth.getUser();
-    console.log('Logged in user ID:', user?.user?.id);
-    console.log('Doctor profile ID:', doctorProfile?.id);
-    console.log('Doctor user_id:', doctorProfile?.user_id);
+  const handleStatusUpdate = async (appointmentId: string, newStatus: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: newStatus })
+        .eq('id', appointmentId)
+        .select();
+  
+      if (error) {
+        console.error('Update failed:', error);
+      } else {
+        console.log(`Updated appointment (${appointmentId}) to status "${newStatus}"`);
+        console.log('Returned data:', data);
+  
+        const updatedAppointments = appointments.map((apt) =>
+          apt.id === appointmentId ? { ...apt, status: newStatus } : apt
+        );
+        setAppointments(updatedAppointments);
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+    }
   };
-
-  checkUser();
-}, [doctorProfile]);
 
   useEffect(() => {
     const fetchAppointments = async () => {
       setIsLoading(true);
       try {
-        const data = await getAppointments(); // ✅ No doctorProfile.id passed
+        const data = await getAppointments();
         console.log('Fetched Appointments:', data);
         setAppointments(data);
         setFilteredAppointments(data);
@@ -49,43 +61,25 @@ useEffect(() => {
 
   useEffect(() => {
     let filtered = [...appointments];
-    
-    // Apply status filter
+
     if (statusFilter !== 'all') {
       filtered = filtered.filter(apt => apt.status === statusFilter);
     }
-    
-    // Apply search filter
+
     if (searchQuery.trim() !== '') {
       const lowercaseQuery = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        apt => 
+        apt =>
           apt.symptoms?.toLowerCase().includes(lowercaseQuery) ||
           apt.appointment_type?.toLowerCase().includes(lowercaseQuery) ||
           apt.status?.toLowerCase().includes(lowercaseQuery)
       );
     }
-    
-    // Sort by date, most recent first
+
     filtered.sort((a, b) => new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime());
-    
+
     setFilteredAppointments(filtered);
   }, [searchQuery, statusFilter, appointments]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'no-show':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -151,8 +145,8 @@ useEffect(() => {
             <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900">No appointments found</h3>
             <p className="mt-1 text-gray-500 mb-4">
-              {searchQuery || statusFilter !== 'all' 
-                ? "Try adjusting your search or filter" 
+              {searchQuery || statusFilter !== 'all'
+                ? "Try adjusting your search or filter"
                 : "Get started by creating a new appointment"}
             </p>
             <Button>Create Appointment</Button>
@@ -170,6 +164,9 @@ useEffect(() => {
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Type
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Symptoms
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -199,23 +196,38 @@ useEffect(() => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{appointment.appointment_type}</div>
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500 truncate max-w-xs">
                         {appointment.symptoms}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                        {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                      </span>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {appointment.status}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link to={`/appointments/${appointment.id}`} className="text-blue-600 hover:text-blue-900 mr-4">
-                        View
-                      </Link>
-                      <Link to={`/appointments/${appointment.id}/edit`} className="text-indigo-600 hover:text-indigo-900">
-                        Edit
-                      </Link>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 space-x-2">
+                      <button
+                        onClick={() => {
+                          console.log(`Approving appointment: ${appointment.id}`);
+                          handleStatusUpdate(appointment.id, 'approved');
+                        }}
+                        className="text-green-600 hover:underline"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log(`Cancelling appointment: ${appointment.id}`);
+                          handleStatusUpdate(appointment.id, 'cancelled');
+                        }}
+                        className="text-red-600 hover:underline"
+                      >
+                        Cancel
+                      </button>
                     </td>
+
                   </tr>
                 ))}
               </tbody>

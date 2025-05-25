@@ -146,3 +146,4 @@ export async function getDoctor(id: string) {
     return null;
   }
 }
+
