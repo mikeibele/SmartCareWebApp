@@ -7,7 +7,6 @@ import Signup from './pages/auth/Signup';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
-import HealthRecords from './pages/HealthRecords';
 import Prescription from './pages/Prescription'; 
 
 // Private route component to protect authenticated routes
@@ -103,7 +102,6 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="patients" element={<Patients />} />
             <Route path="appointments" element={<Appointments />} />
-            <Route path="health-records" element={<HealthRecords />} />
             <Route path="prescriptions" element={<Prescription />} />
             {/* Add more routes as needed */}
           </Route>
